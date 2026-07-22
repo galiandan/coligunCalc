@@ -115,6 +115,7 @@ class CrowbarExcitation : public CapacitorExcitation {
 public:
     using CapacitorExcitation::CapacitorExcitation;
 
+    double voltage() const override { return diode_on_ ? 0.0 : U_C_; }
     void advance(double dt, double coil_current) override;
     void reset() override;
     std::unique_ptr<ExcitationSnapshot> snapshot() const override;

@@ -111,7 +111,9 @@ struct ThermalWorkspace::Impl {
     double *i = nullptr, *m = nullptr, *r0 = nullptr, *temp = nullptr, *rho = nullptr, *r = nullptr, *q = nullptr;
     int* material = nullptr;
     std::size_t table_count = 0, value_count = 0;
+    int device_id = -1;
     ~Impl() {
+        if (device_id >= 0) cudaSetDevice(device_id);
         cudaFree(t); cudaFree(cp_al); cudaFree(cp_cu); cudaFree(rho_al); cudaFree(rho_cu);
         cudaFree(i); cudaFree(m); cudaFree(r0); cudaFree(temp); cudaFree(rho); cudaFree(r); cudaFree(q);
         cudaFree(material);
@@ -128,9 +130,15 @@ void ThermalWorkspace::initialize(const MaterialTables& tables, std::size_t coun
         tables.rho_copper.size() != tables.temperatures.size() ||
         count == 0 || !(tables.minimum_temperature < tables.maximum_temperature))
         throw std::invalid_argument("invalid thermal workspace dimensions or material tables");
+    int device = -1;
+    check_cuda(cudaGetDevice(&device), "cudaGetDevice(thermal workspace)");
+    const ThermalWorkspaceKey requested{device, tables.version,
+        tables.minimum_temperature, tables.maximum_temperature,
+        tables.temperatures.size(), count};
     if (!impl_) impl_ = std::make_unique<Impl>();
-    if (impl_->table_count == tables.temperatures.size() && impl_->value_count == count) return;
+    if (key_ == requested) return;
     impl_.reset(new Impl{});
+    impl_->device_id = device;
     const auto n = tables.temperatures.size();
     alloc_copy(impl_->t, tables.temperatures.data(), n);
     alloc_copy(impl_->cp_al, tables.cp_aluminum.data(), n);
@@ -148,6 +156,7 @@ void ThermalWorkspace::initialize(const MaterialTables& tables, std::size_t coun
     impl_->table_count = n;
     impl_->value_count = count;
     allocation_count_ = n * 5 + count * 8;
+    key_ = requested;
 }
 
 void ThermalWorkspace::update(const MaterialTables& tables, ThermalPrecision precision,
@@ -275,7 +284,7 @@ void update_thermal_batch(const MaterialTables& tables, ThermalPrecision precisi
             !std::isfinite(temperatures[i]) || !std::isfinite(resistances[i]) || resistances[i] < 0.0)
             throw std::invalid_argument("invalid thermal state");
     }
-    static thread_local ThermalWorkspace workspace;
+    ThermalWorkspace workspace;
     workspace.update(tables, precision, batch_count, filament_count, currents, masses,
                      reference_resistances, materials, dt, temperatures, resistivities,
                      resistances, joule_energy, stream);

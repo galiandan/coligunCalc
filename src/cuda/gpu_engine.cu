@@ -207,6 +207,7 @@ void GpuEngine::initialize_runtime() {
         try {
             context_ = std::make_unique<GpuExecutionContext>(GpuExecutionContextConfig{
                 config_.device_id, cudaStreamNonBlocking, 0, config_.enable_profiling});
+            context_->ensure_quadrature9_loaded();
         } catch (const std::exception& error) {
             record_runtime_failure(SolverStatus::failure_status(
                 SolverFailure::InvalidArgument,

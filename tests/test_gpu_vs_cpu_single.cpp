@@ -597,7 +597,8 @@ TEST_CASE("GPU single-stage Full and Aggressive apply the canonical distant mutu
     constexpr double dt = 1e-6;
     constexpr double distant_coil_position = 1.0;
 
-    auto make_sim = [](GpuOptLevel opt_level, BackendMode backend_mode) {
+    auto make_sim = [distant_coil_position](GpuOptLevel opt_level,
+                                             BackendMode backend_mode) {
         DrivingCoil coil(0.01, 0.03, 0.05, 150, COPPER.resistivity_ref,
                          1e-6, 0.7, distant_coil_position);
         Armature arm(0.005, 0.025, 0.08, ALUMINUM.resistivity_ref,
